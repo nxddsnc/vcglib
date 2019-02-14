@@ -267,21 +267,50 @@ public:
     }
     else
     { // if the collapse is A-symmetric (e.g. u->v != v->u)
-      for(auto vi=m.vert.begin();vi!=m.vert.end();++vi)
-        if(!(*vi).IsD() && (*vi).IsRW())
-        {
-          vcg::face::VFIterator<FaceType> x;
-          UnMarkAll(m);
-          for( x.F() = (*vi).VFp(), x.I() = (*vi).VFi(); x.F()!=0; ++ x)
-          {
-            if(x.V()->IsRW() && x.V1()->IsRW() && !IsMarked(m,x.F()->V1(x.I()))){
-              h_ret.push_back( HeapElem( new MYTYPE( VertexPair (x.V(),x.V1()),TriEdgeCollapse< TriMeshType,VertexPair,MYTYPE>::GlobalMark(),_pp)));
-            }
-            if(x.V()->IsRW() && x.V2()->IsRW() && !IsMarked(m,x.F()->V2(x.I()))){
-              h_ret.push_back( HeapElem( new MYTYPE( VertexPair (x.V(),x.V2()),TriEdgeCollapse< TriMeshType,VertexPair,MYTYPE>::GlobalMark(),_pp)));
-            }
-          }
-        }
+		for (auto vi = m.vert.begin(); vi != m.vert.end(); ++vi)
+		{
+			vcg::face::VFIterator<FaceType> x;
+
+			for (auto vi1 = m.vert.begin(); vi1 != m.vert.end(); ++vi1)
+			{
+				bool shouldSkip = false;
+				for (x.F() = (*vi).VFp(), x.I() = (*vi).VFi(); x.F() != 0; ++x)
+				{
+					if (&*vi1 == x.V1() || &*vi1 == x.V2())
+					{
+						shouldSkip = true;
+						break;
+					}
+				}
+				if (shouldSkip)
+				{
+					continue;
+				}
+				if (vi != vi1 && !(*vi).IsD() && (*vi).IsRW())
+				{
+					float test = Distance((*vi).P(), (*vi1).P());
+					if (test < 0.1)
+						h_ret.push_back(HeapElem(new MYTYPE(VertexPair(&*vi, &*vi1), TriEdgeCollapse< TriMeshType, VertexPair, MYTYPE>::GlobalMark(), _pp)));
+				}
+			}
+		}
+		//for (auto vi = m.vert.begin(); vi != m.vert.end(); ++vi)
+		//{
+		//	if (!(*vi).IsD() && (*vi).IsRW())
+		//	{
+		//		vcg::face::VFIterator<FaceType> x;
+		//		UnMarkAll(m);
+		//		for (x.F() = (*vi).VFp(), x.I() = (*vi).VFi(); x.F() != 0; ++x)
+		//		{
+		//			if (x.V()->IsRW() && x.V1()->IsRW() && !IsMarked(m, x.F()->V1(x.I()))) {
+		//				h_ret.push_back(HeapElem(new MYTYPE(VertexPair(x.V(), x.V1()), TriEdgeCollapse< TriMeshType, VertexPair, MYTYPE>::GlobalMark(), _pp)));
+		//			}
+		//			if (x.V()->IsRW() && x.V2()->IsRW() && !IsMarked(m, x.F()->V2(x.I()))) {
+		//				h_ret.push_back(HeapElem(new MYTYPE(VertexPair(x.V(), x.V2()), TriEdgeCollapse< TriMeshType, VertexPair, MYTYPE>::GlobalMark(), _pp)));
+		//			}
+		//		}
+		//	}
+		//}
     }
   }
 //  static float HeapSimplexRatio(BaseParameterClass *_pp) {return IsSymmetric(_pp)?5.0f:9.0f;}
