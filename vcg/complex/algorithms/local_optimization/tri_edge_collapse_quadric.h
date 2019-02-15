@@ -82,6 +82,7 @@ namespace tri{
 class TriEdgeCollapseQuadricParameter : public BaseParameterClass
 {
 public:
+  double    CollapseThr = 10; // If the distance of two vertex is smaller than CollapseThr, then the vertex pair will be added to the heap.
   double    BoundaryQuadricWeight = 0.5;
   bool      FastPreserveBoundary  = false;
   bool      AreaCheck           = false;
@@ -267,40 +268,41 @@ public:
     }
     else
     { // if the collapse is A-symmetric (e.g. u->v != v->u)
-		for (auto vi = m.vert.begin(); vi != m.vert.end(); ++vi)
+        float distance = 999999999999;
+		for (auto vi1 = m.vert.begin(); vi1 != m.vert.end(); ++vi1)
 		{
 			vcg::face::VFIterator<FaceType> x;
 
-			for (auto vi1 = m.vert.begin(); vi1 != m.vert.end(); ++vi1)
+			for (auto vi2 = m.vert.begin(); vi2 != m.vert.end(); ++vi2)
 			{
-				bool shouldSkip = false;
-				for (x.F() = (*vi).VFp(), x.I() = (*vi).VFi(); x.F() != 0; ++x)
+				if (vi1 != vi2 && !(*vi1).IsD() && (*vi1).IsRW())
 				{
-					if (&*vi1 == x.V1() || &*vi1 == x.V2())
-					{
-						shouldSkip = true;
-						break;
-					}
-				}
-				if (shouldSkip)
-				{
-					continue;
-				}
-				if (vi != vi1 && !(*vi).IsD() && (*vi).IsRW())
-				{
-					float test = Distance((*vi).P(), (*vi1).P());
-					if (test < 0.1)
-						h_ret.push_back(HeapElem(new MYTYPE(VertexPair(&*vi, &*vi1), TriEdgeCollapse< TriMeshType, VertexPair, MYTYPE>::GlobalMark(), _pp)));
+                    vcg::face::VFIterator<FaceType> x;
+                    for (x.F() = (*vi1).VFp(), x.I() = (*vi1).VFi(); x.F() != 0; ++x)
+                    {
+                        if (x.V1() == &*vi2 || x.V2() == &*vi2)
+                        {
+                            distance = 0;
+                            break;
+                        }
+                    }
+
+                    if (distance > 1.0) // v1 v2 is not connected by mesh edge
+                    {
+                        distance = Distance((*vi1).P(), (*vi2).P());
+                    }
+					if (distance < pp->CollapseThr)
+						h_ret.push_back(HeapElem(new MYTYPE(VertexPair(&*vi1, &*vi2), TriEdgeCollapse< TriMeshType, VertexPair, MYTYPE>::GlobalMark(), _pp)));
 				}
 			}
 		}
-		//for (auto vi = m.vert.begin(); vi != m.vert.end(); ++vi)
+		//for (auto vi1 = m.vert.begin(); vi1 != m.vert.end(); ++vi1)
 		//{
-		//	if (!(*vi).IsD() && (*vi).IsRW())
+		//	if (!(*vi1).IsD() && (*vi1).IsRW())
 		//	{
 		//		vcg::face::VFIterator<FaceType> x;
 		//		UnMarkAll(m);
-		//		for (x.F() = (*vi).VFp(), x.I() = (*vi).VFi(); x.F() != 0; ++x)
+		//		for (x.F() = (*vi1).VFp(), x.I() = (*vi1).VFi(); x.F() != 0; ++x)
 		//		{
 		//			if (x.V()->IsRW() && x.V1()->IsRW() && !IsMarked(m, x.F()->V1(x.I()))) {
 		//				h_ret.push_back(HeapElem(new MYTYPE(VertexPair(x.V(), x.V1()), TriEdgeCollapse< TriMeshType, VertexPair, MYTYPE>::GlobalMark(), _pp)));
