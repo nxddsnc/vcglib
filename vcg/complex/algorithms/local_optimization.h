@@ -25,6 +25,8 @@
 #define __VCGLIB_LOCALOPTIMIZATION
 #include <vcg/complex/complex.h>
 #include <time.h>
+#include<unordered_map>
+
 namespace vcg{
 // Base class for Parameters
 // all parameters must be derived from this.
@@ -45,6 +47,7 @@ class LocalModification
  public:
         typedef typename LocalOptimization<MeshType>::HeapType HeapType;
         typedef typename MeshType::ScalarType ScalarType;
+		typedef typename MeshType::VertexType VertexType;
 
   inline LocalModification(){}
   virtual ~LocalModification(){}
@@ -68,7 +71,7 @@ class LocalModification
   virtual void Execute(MeshType &m, BaseParameterClass *pp)=0;
 
 	/// perform initialization
-  static void Init(MeshType &m, HeapType&, BaseParameterClass *pp);
+  static void Init(MeshType &m, HeapType& h_ret, BaseParameterClass *pp, std::unordered_map<VertexType*, VertexType*>& vertexCachePair);
 
 	/// An approximation of the size of the heap with respect of the number of simplex
     /// of the mesh. When this number is exceeded a clear heap purging is performed. 
@@ -79,7 +82,11 @@ class LocalModification
 
   virtual const char *Info(MeshType &) {return 0;}
 	/// Update the heap as a consequence of this operation
-  virtual void UpdateHeap(HeapType&, BaseParameterClass *pp)=0;
+  virtual void UpdateHeap(BaseParameterClass *pp)=0;
+
+  virtual void UpdateHeap(HeapType&, BaseParameterClass *pp) = 0;
+
+  virtual void UpdateHeap(std::unordered_map<VertexType*, VertexType*> vertexPairCache, HeapType & h_ret, BaseParameterClass *pp) = 0;
 };	//end class local modification
 
 
@@ -100,6 +107,7 @@ public:
 	typedef typename MeshType::ScalarType ScalarType;
 	typedef typename std::vector<HeapElem> HeapType;	
   typedef  LocalModification <MeshType>  LocModType;
+  typedef  typename MeshType::VertexType VertexType;
 
 	/// termination conditions	
 	 enum LOTermination {	
@@ -198,7 +206,7 @@ public:
   }
 	
   /// main cycle of optimization
-  bool DoOptimization()
+  bool DoOptimization(std::unordered_map<VertexType*, VertexType*>& vertexPairCache)
   {
     assert ( ( ( tf & LOnSimplices	)==0) ||  ( nTargetSimplices!= -1));
     assert ( ( ( tf & LOnVertices	)==0) ||  ( nTargetVertices	!= -1));
@@ -223,7 +231,7 @@ public:
 					{
 						nPerformedOps++;
             locMod->Execute(m,this->pp);
-            locMod->UpdateHeap(h,this->pp);
+            locMod->UpdateHeap(vertexPairCache, h, this->pp);
 						}
 				}
 				delete locMod;
@@ -261,14 +269,14 @@ public:
 	///initialize for all vertex the temporary mark must call only at the start of decimation
 	///by default it takes the first element in the heap and calls Init (static funcion) of that type
 	///of local modification. 
-  template <class LocalModificationType> void Init()
+  template <class LocalModificationType> void Init(std::unordered_map<VertexType*, VertexType*>& vertexPairCache)
 	{
     vcg::tri::InitVertexIMark(m);
 		
     // The expected size of heap depends on the type of the local modification we are using..
     HeapSimplexRatio = LocalModificationType::HeapSimplexRatio(pp);
 		
-    LocalModificationType::Init(m,h,pp);
+    LocalModificationType::Init(m, h,pp, vertexPairCache);
     std::make_heap(h.begin(),h.end());
     if(!h.empty()) currMetric=h.front().pri;
 	}
