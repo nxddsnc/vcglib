@@ -132,7 +132,11 @@ public:
   {
 
   }
+<<<<<<< HEAD
   inline void UpdateHeap(std::unordered_map<MyVertexType*, MyVertexType*>& vertexPairCache, HeapType & h_ret, BaseParameterClass *pp)
+=======
+  inline void UpdateHeap(std::unordered_map<MyVertexType*, MyVertexType*> vertexPairCache, HeapType & h_ret, BaseParameterClass *pp)
+>>>>>>> 7e657e07fc7873bdd2599cefec538c3387a75a17
   {
 
   }

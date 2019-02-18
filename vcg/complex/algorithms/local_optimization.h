@@ -86,7 +86,11 @@ class LocalModification
 
   virtual void UpdateHeap(HeapType&, BaseParameterClass *pp) = 0;
 
+<<<<<<< HEAD
   virtual void UpdateHeap(std::unordered_map<VertexType*, VertexType*>& vertexPairCache, HeapType & h_ret, BaseParameterClass *pp) = 0;
+=======
+  virtual void UpdateHeap(std::unordered_map<VertexType*, VertexType*> vertexPairCache, HeapType & h_ret, BaseParameterClass *pp) = 0;
+>>>>>>> 7e657e07fc7873bdd2599cefec538c3387a75a17
 };	//end class local modification
 
 
