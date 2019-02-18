@@ -489,7 +489,7 @@ public:
     inline VertexType *V() const { return f->V(z);}
 
     inline VertexType * const & V0() const { return f->V0(z);}
-    inline VertexType * const & V1() const { return f->V1(z);}
+     inline VertexType * const & V1() const { return f->V1(z);}
     inline VertexType * const & V2() const { return f->V2(z);}
 
     bool End() const {return f==0;}
