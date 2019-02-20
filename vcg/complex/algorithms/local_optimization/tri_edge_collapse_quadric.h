@@ -82,6 +82,7 @@ namespace tri{
 class TriEdgeCollapseQuadricParameter : public BaseParameterClass
 {
 public:
+  double    CollapseThr = 1.0;
   double    BoundaryQuadricWeight = 0.5;
   bool      FastPreserveBoundary  = false;
   bool      AreaCheck           = false;
@@ -206,7 +207,7 @@ public:
     }
   }
   
-  static void Init(TriMeshType &m, HeapType &h_ret, BaseParameterClass *_pp)
+  static void Init(TriMeshType &m, HeapType &h_ret, BaseParameterClass *_pp, std::unordered_map<VertexType*, VertexType*>& vertexPairCache)
   {
     QParameter *pp=(QParameter *)_pp;    
     pp->CosineThr=cos(pp->NormalThrRad);
@@ -267,50 +268,56 @@ public:
     }
     else
     { // if the collapse is A-symmetric (e.g. u->v != v->u)
-		for (auto vi = m.vert.begin(); vi != m.vert.end(); ++vi)
-		{
-			vcg::face::VFIterator<FaceType> x;
+      for (auto vi1 = m.vert.begin(); vi1 != m.vert.end(); ++vi1)
+      {
+        vcg::face::VFIterator<FaceType> x;
 
-			for (auto vi1 = m.vert.begin(); vi1 != m.vert.end(); ++vi1)
-			{
-				bool shouldSkip = false;
-				for (x.F() = (*vi).VFp(), x.I() = (*vi).VFi(); x.F() != 0; ++x)
-				{
-					if (&*vi1 == x.V1() || &*vi1 == x.V2())
-					{
-						shouldSkip = true;
-						break;
-					}
-				}
-				if (shouldSkip)
-				{
-					continue;
-				}
-				if (vi != vi1 && !(*vi).IsD() && (*vi).IsRW())
-				{
-					float test = Distance((*vi).P(), (*vi1).P());
-					if (test < 0.1)
-						h_ret.push_back(HeapElem(new MYTYPE(VertexPair(&*vi, &*vi1), TriEdgeCollapse< TriMeshType, VertexPair, MYTYPE>::GlobalMark(), _pp)));
-				}
-			}
-		}
-		//for (auto vi = m.vert.begin(); vi != m.vert.end(); ++vi)
-		//{
-		//	if (!(*vi).IsD() && (*vi).IsRW())
-		//	{
-		//		vcg::face::VFIterator<FaceType> x;
-		//		UnMarkAll(m);
-		//		for (x.F() = (*vi).VFp(), x.I() = (*vi).VFi(); x.F() != 0; ++x)
-		//		{
-		//			if (x.V()->IsRW() && x.V1()->IsRW() && !IsMarked(m, x.F()->V1(x.I()))) {
-		//				h_ret.push_back(HeapElem(new MYTYPE(VertexPair(x.V(), x.V1()), TriEdgeCollapse< TriMeshType, VertexPair, MYTYPE>::GlobalMark(), _pp)));
-		//			}
-		//			if (x.V()->IsRW() && x.V2()->IsRW() && !IsMarked(m, x.F()->V2(x.I()))) {
-		//				h_ret.push_back(HeapElem(new MYTYPE(VertexPair(x.V(), x.V2()), TriEdgeCollapse< TriMeshType, VertexPair, MYTYPE>::GlobalMark(), _pp)));
-		//			}
-		//		}
-		//	}
-		//}
+        for (auto vi2 = m.vert.begin(); vi2 != m.vert.end(); ++vi2)
+        {
+          bool isEdge = false;
+          for (x.F() = (*vi1).VFp(), x.I() = (*vi1).VFi(); x.F() != 0; ++x)
+          {
+            if (&*vi2 == x.V1() || &*vi2 == x.V2())
+            {
+              isEdge = true;
+              break;
+            }
+          }
+          if (isEdge)
+          {
+            continue;
+          }
+          if (vi1 != vi2 && !(*vi1).IsD() && (*vi1).IsRW())
+          {
+            float test = Distance((*vi1).P(), (*vi2).P());
+            if (test < pp->CollapseThr)
+            {
+              h_ret.push_back(HeapElem(new MYTYPE(VertexPair(&*vi1, &*vi2), TriEdgeCollapse< TriMeshType, VertexPair, MYTYPE>::GlobalMark(), _pp)));
+              if (vertexPairCache.count(&*vi1) == 0)
+              {
+                vertexPairCache.insert(&*vi1, &*vi2);
+              }
+            }
+          }
+        }
+      }
+      for (auto vi = m.vert.begin(); vi != m.vert.end(); ++vi)
+      {
+        if (!(*vi).IsD() && (*vi).IsRW())
+        {
+          vcg::face::VFIterator<FaceType> x;
+          UnMarkAll(m);
+          for (x.F() = (*vi).VFp(), x.I() = (*vi).VFi(); x.F() != 0; ++x)
+          {
+            if (x.V()->IsRW() && x.V1()->IsRW() && !IsMarked(m, x.F()->V1(x.I()))) {
+              h_ret.push_back(HeapElem(new MYTYPE(VertexPair(x.V(), x.V1()), TriEdgeCollapse< TriMeshType, VertexPair, MYTYPE>::GlobalMark(), _pp)));
+            }
+            if (x.V()->IsRW() && x.V2()->IsRW() && !IsMarked(m, x.F()->V2(x.I()))) {
+              h_ret.push_back(HeapElem(new MYTYPE(VertexPair(x.V(), x.V2()), TriEdgeCollapse< TriMeshType, VertexPair, MYTYPE>::GlobalMark(), _pp)));
+            }
+          }
+        }
+      }
     }
   }
 //  static float HeapSimplexRatio(BaseParameterClass *_pp) {return IsSymmetric(_pp)?5.0f:9.0f;}
@@ -549,8 +556,9 @@ public:
     }
   }
   
-  inline  void UpdateHeap(HeapType & h_ret, BaseParameterClass *_pp)
+  inline  void UpdateHeap(HeapType & h_ret, BaseParameterClass *_pp, std::unordered_map<VertexType*, VertexType*>& vertexPairCache)
   {
+    TriEdgeCollapseQuadricParameter* pp = (TriEdgeCollapseQuadricParameter*)_pp;
     this->GlobalMark()++;
     VertexType *v[2];
     v[0]= this->pos.V(0);
@@ -571,11 +579,29 @@ public:
       {
         vfi.V1()->SetV();
         AddCollapseToHeap(h_ret,vfi.V0(),vfi.V1(),_pp);
+        if (vertexPairCache.count(vfi.V1()) > 0)
+        {
+          VertexType* vertex = vertexPairCache.at(vfi.V1());
+          float distance = Distance(vertex->P(), vfi.V1()->P());
+          if (distance < pp->CosineThr)
+          {
+            AddCollapseToHeap(h_ret, vertex, vfi.V1(), _pp);
+          }
+        }
       }
       if(  !(vfi.V2()->IsV()) && vfi.V2()->IsRW())
       {
         vfi.V2()->SetV();
         AddCollapseToHeap(h_ret,vfi.V2(),vfi.V0(),_pp);
+        if (vertexPairCache.count(vfi.V1()) > 0)
+        {
+          VertexType* vertex = vertexPairCache.at(vfi.V2());
+            float distance = Distance(vertex->P(), vfi.V2()->P());
+          if (distance < pp->CosineThr)
+          {
+            AddCollapseToHeap(h_ret, vertex, vfi.V2(), _pp);
+          }
+        }
       }
       if(vfi.V1()->IsRW() && vfi.V2()->IsRW() )
         AddCollapseToHeap(h_ret,vfi.V1(),vfi.V2(),_pp);
