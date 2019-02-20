@@ -295,7 +295,7 @@ public:
               h_ret.push_back(HeapElem(new MYTYPE(VertexPair(&*vi1, &*vi2), TriEdgeCollapse< TriMeshType, VertexPair, MYTYPE>::GlobalMark(), _pp)));
               if (vertexPairCache.count(&*vi1) == 0)
               {
-                vertexPairCache.insert(&*vi1, &*vi2);
+                vertexPairCache.insert(std::make_pair(&*vi1, &*vi2));
               }
             }
           }
@@ -583,7 +583,7 @@ public:
         {
           VertexType* vertex = vertexPairCache.at(vfi.V1());
           float distance = Distance(vertex->P(), vfi.V1()->P());
-          if (distance < pp->CosineThr)
+          if (distance < pp->CollapseThr)
           {
             AddCollapseToHeap(h_ret, vertex, vfi.V1(), _pp);
           }
@@ -593,11 +593,11 @@ public:
       {
         vfi.V2()->SetV();
         AddCollapseToHeap(h_ret,vfi.V2(),vfi.V0(),_pp);
-        if (vertexPairCache.count(vfi.V1()) > 0)
+        if (vertexPairCache.count(vfi.V2()) > 0)
         {
           VertexType* vertex = vertexPairCache.at(vfi.V2());
             float distance = Distance(vertex->P(), vfi.V2()->P());
-          if (distance < pp->CosineThr)
+          if (distance < pp->CollapseThr)
           {
             AddCollapseToHeap(h_ret, vertex, vfi.V2(), _pp);
           }

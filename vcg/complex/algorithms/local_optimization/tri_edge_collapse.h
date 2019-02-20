@@ -68,6 +68,7 @@ public:
 protected:
   typedef	typename TriMeshType::FaceType FaceType;
   typedef	typename TriMeshType::FaceType::VertexType VertexType;
+  typedef   typename TriMeshType::VertexType MyVertexType;
 //	typedef	typename VertexType::EdgeType EdgeType;
   typedef	typename FaceType::VertexType::CoordType CoordType;
   typedef	typename TriMeshType::VertexType::ScalarType ScalarType;
@@ -131,7 +132,7 @@ public:
   // This function is called after an action to re-add in the heap elements whose priority could have been changed.
   // in the plain case we just put again in the heap all the edges around the vertex resulting from the previous collapse: v[1].
   // if the collapse is not symmetric you should add also backward edges (because v0->v1 collapse could be different from v1->v0)
-  inline  void UpdateHeap(HeapType & h_ret, BaseParameterClass *pp, std::unordered_map<VertexType*, VertexType*>& vertexPairCache)
+  inline  void UpdateHeap(HeapType & h_ret, BaseParameterClass *pp, std::unordered_map<MyVertexType*, MyVertexType*>& vertexPairCache)
   {
 
   }
@@ -212,6 +213,11 @@ public:
 
   virtual ScalarType Priority() const {
   return _priority;
+  }
+
+  static void Init(TriMeshType &m, HeapType&, BaseParameterClass *pp, std::unordered_map<MyVertexType*, MyVertexType*>& vertexPairCache)
+  {
+
   }
 
   static void Init(TriMeshType &m, HeapType &h_ret, BaseParameterClass *pp)

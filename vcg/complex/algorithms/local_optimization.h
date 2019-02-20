@@ -71,6 +71,8 @@ class LocalModification
 
 	/// perform initialization
   static void Init(MeshType &m, HeapType&, BaseParameterClass *pp);
+
+  static void Init(MeshType &m, HeapType&, BaseParameterClass *pp, std::unordered_map<VertexType*, VertexType*>& vertexPairCache);
 	/// An approximation of the size of the heap with respect of the number of simplex
     /// of the mesh. When this number is exceeded a clear heap purging is performed. 
     /// so it is should be reasonably larger than the minimum expected size to avoid too frequent clear heap
