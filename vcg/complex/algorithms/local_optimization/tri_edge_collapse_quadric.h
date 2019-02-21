@@ -189,12 +189,12 @@ public:
     for (VFIterator vfi(this->pos.V(1)); !vfi.End(); ++vfi) {
       faceCount++;
     }
-    std::printf("faceCount v1: %d\n", faceCount);
+    //std::printf("faceCount v1: %d\n", faceCount);
     faceCount = 0;
     for (VFIterator vfi(this->pos.V(0)); !vfi.End(); ++vfi) {
       faceCount++;
     }
-    std::printf("faceCount v0: %d\n", faceCount);
+    //std::printf("faceCount v0: %d\n", faceCount);
 
     EdgeCollapser<TriMeshType,VertexPair>::Do(m, this->pos, newPos); 
     //vcg::tri::UpdateFlags<TriMeshType>::FaceBorderFromVF(m);
@@ -221,7 +221,7 @@ public:
     }
   }
   
-  static void Init(TriMeshType &m, HeapType &h_ret, BaseParameterClass *_pp, std::unordered_map<VertexType*, VertexType*>& vertexPairCache)
+  static void Init(TriMeshType &m, HeapType &h_ret, BaseParameterClass *_pp, std::unordered_map<VertexType*, std::vector<VertexType*>>& vertexPairCache)
   {
     QParameter *pp=(QParameter *)_pp;    
     pp->CosineThr=cos(pp->NormalThrRad);
@@ -309,8 +309,14 @@ public:
               h_ret.push_back(HeapElem(new MYTYPE(VertexPair(&*vi1, &*vi2), TriEdgeCollapse< TriMeshType, VertexPair, MYTYPE>::GlobalMark(), _pp)));
               if (vertexPairCache.count(&*vi1) == 0)
               {
-                vertexPairCache.insert(std::make_pair(&*vi1, &*vi2));
+								std::vector<VertexType*> vertices;
+								vertices.push_back(&*vi2);
+                vertexPairCache.insert(std::make_pair(&*vi1, vertices));
               }
+							else
+							{
+								vertexPairCache.at(&*vi1).push_back(&*vi2);
+							}
             }
           }
         }
@@ -575,7 +581,7 @@ public:
     }
   }
   
-  inline  void UpdateHeap(HeapType & h_ret, BaseParameterClass *_pp, std::unordered_map<VertexType*, VertexType*>& vertexPairCache)
+  inline  void UpdateHeap(HeapType & h_ret, BaseParameterClass *_pp, std::unordered_map<VertexType*, std::vector<MyVertexType*>>& vertexPairCache)
   {
     TriEdgeCollapseQuadricParameter* pp = (TriEdgeCollapseQuadricParameter*)_pp;
     this->GlobalMark()++;
@@ -600,33 +606,41 @@ public:
         AddCollapseToHeap(h_ret,vfi.V0(),vfi.V1(),_pp);
         if (vertexPairCache.count(vfi.V1()) > 0)
         {
-          VertexType* vertex = vertexPairCache.at(vfi.V1());
-          if (!vertex->IsD())
-          {
-            float distance = Distance(vertex->P(), vfi.V1()->P());
-            if (distance < pp->CollapseThr)
-            {
-              AddCollapseToHeap(h_ret, vertex, vfi.V1(), _pp);
-            }
-          }
+					std::vector<MyVertexType*>& vertices = vertexPairCache.at(vfi.V1());
+					for (int i = 0; i < vertices.size(); ++i)
+					{
+						VertexType* vertex = vertices[i];
+						if (!vertex->IsD())
+						{
+							float distance = Distance(vertex->P(), vfi.V1()->P());
+							if (distance < pp->CollapseThr)
+							{
+								AddCollapseToHeap(h_ret, vertex, vfi.V1(), _pp);
+							}
+						}
+					}
         }
       }
       if(  !(vfi.V2()->IsV()) && vfi.V2()->IsRW())
       {
         vfi.V2()->SetV();
         AddCollapseToHeap(h_ret,vfi.V2(),vfi.V0(),_pp);
-        if (vertexPairCache.count(vfi.V2()) > 0)
-        {
-          VertexType* vertex = vertexPairCache.at(vfi.V2());
-          if (!vertex->IsD())
-          {
-            float distance = Distance(vertex->P(), vfi.V2()->P());
-            if (distance < pp->CollapseThr)
-            {
-              AddCollapseToHeap(h_ret, vertex, vfi.V2(), _pp);
-            }
-          }
-        }
+				if (vertexPairCache.count(vfi.V2()) > 0)
+				{
+					std::vector<MyVertexType*>& vertices = vertexPairCache.at(vfi.V2());
+					for (int i = 0; i < vertices.size(); ++i)
+					{
+						VertexType* vertex = vertices[i];
+						if (!vertex->IsD())
+						{
+							float distance = Distance(vertex->P(), vfi.V2()->P());
+							if (distance < pp->CollapseThr)
+							{
+								AddCollapseToHeap(h_ret, vertex, vfi.V2(), _pp);
+							}
+						}
+					}
+				}
       }
       if(vfi.V1()->IsRW() && vfi.V2()->IsRW() )
         AddCollapseToHeap(h_ret,vfi.V1(),vfi.V2(),_pp);

@@ -72,7 +72,7 @@ class LocalModification
 	/// perform initialization
   static void Init(MeshType &m, HeapType&, BaseParameterClass *pp);
 
-  static void Init(MeshType &m, HeapType&, BaseParameterClass *pp, std::unordered_map<VertexType*, VertexType*>& vertexPairCache);
+  static void Init(MeshType &m, HeapType&, BaseParameterClass *pp, std::unordered_map<VertexType*, std::vector<VertexType*>>& vertexPairCache);
 	/// An approximation of the size of the heap with respect of the number of simplex
     /// of the mesh. When this number is exceeded a clear heap purging is performed. 
     /// so it is should be reasonably larger than the minimum expected size to avoid too frequent clear heap
@@ -84,7 +84,7 @@ class LocalModification
 	/// Update the heap as a consequence of this operation
   virtual void UpdateHeap(HeapType&, BaseParameterClass *pp)=0;
 
-  virtual void UpdateHeap(HeapType & h_ret, BaseParameterClass *pp, std::unordered_map<VertexType*, VertexType*>& vertexPairCache) = 0;
+  virtual void UpdateHeap(HeapType & h_ret, BaseParameterClass *pp, std::unordered_map<VertexType*, std::vector<VertexType*>>& vertexPairCache) = 0;
 };	//end class local modification
 
 
@@ -203,7 +203,7 @@ public:
   }
 	
   /// main cycle of optimization
-  bool DoOptimization(std::unordered_map<VertexType*, VertexType*>& vertexPairCache)
+  bool DoOptimization(std::unordered_map<VertexType*, std::vector<VertexType*>>& vertexPairCache)
   {
     assert ( ( ( tf & LOnSimplices	)==0) ||  ( nTargetSimplices!= -1));
     assert ( ( ( tf & LOnVertices	)==0) ||  ( nTargetVertices	!= -1));
@@ -229,8 +229,8 @@ public:
 					{
 						nPerformedOps++;
             locMod->Execute(m,this->pp);
-            //locMod->UpdateHeap(h,this->pp, vertexPairCache);
-            printf("current Metric: %f\n", currMetric);
+            locMod->UpdateHeap(h,this->pp, vertexPairCache);
+            //printf("current Metric: %f\n", currMetric);
 						}
 				}
 				delete locMod;
@@ -268,7 +268,7 @@ public:
 	///initialize for all vertex the temporary mark must call only at the start of decimation
 	///by default it takes the first element in the heap and calls Init (static funcion) of that type
 	///of local modification. 
-  template <class LocalModificationType> void Init(std::unordered_map<VertexType*, VertexType*>& vertexPairCache)
+  template <class LocalModificationType> void Init(std::unordered_map<VertexType*, std::vector<VertexType*>>& vertexPairCache)
 	{
     vcg::tri::InitVertexIMark(m);
 		
