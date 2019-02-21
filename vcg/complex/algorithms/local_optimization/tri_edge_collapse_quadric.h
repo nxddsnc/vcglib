@@ -180,11 +180,25 @@ public:
     this->optimalPos = newPos;
   }
   
-  void Execute(TriMeshType &m, BaseParameterClass * /*_pp*/)
+  void Execute(TriMeshType &m, BaseParameterClass * _pp/*_pp*/)
   {
     CoordType newPos = this->optimalPos;
     QH::Qd(this->pos.V(1))+=QH::Qd(this->pos.V(0)); // v0 is deleted and v1 take the new position
+
+    int faceCount = 0;
+    for (VFIterator vfi(this->pos.V(1)); !vfi.End(); ++vfi) {
+      faceCount++;
+    }
+    std::printf("faceCount v1: %d\n", faceCount);
+    faceCount = 0;
+    for (VFIterator vfi(this->pos.V(0)); !vfi.End(); ++vfi) {
+      faceCount++;
+    }
+    std::printf("faceCount v0: %d\n", faceCount);
+
     EdgeCollapser<TriMeshType,VertexPair>::Do(m, this->pos, newPos); 
+    //vcg::tri::UpdateFlags<TriMeshType>::FaceBorderFromVF(m);
+    //InitQuadric(m, _pp);
   }
   
   // Final Clean up after the end of the simplification process
@@ -394,7 +408,7 @@ public:
           MinCos=std::min(MinCos,nn.dot(origNormalVec[i++]));
         }
     }      
-    
+
     ScalarType newQual = std::numeric_limits<ScalarType>::max();  // 
     if(pp->QualityCheck){ 
       for(VFIterator x(v[0]); !x.End(); ++x )  // for all faces in v0
@@ -422,7 +436,11 @@ public:
     assert(!math::IsNAN(QuadErr));
     // All collapses involving triangles with quality larger than <QualityThr> have no penalty;
     if(newQual>pp->QualityThr) newQual=pp->QualityThr;
-    
+    //if (MinCos < 0.1)
+    //{
+    //  this->_priority = std::numeric_limits<double>::max();
+    //  return this->_priority;
+    //}
     if(pp->NormalCheck){     
       // All collapses where the normal vary less than <NormalThr> (e.g. more than CosineThr)
       // have no particular penalty
@@ -454,7 +472,8 @@ public:
       error = std::numeric_limits<ScalarType>::max();
     
     if(pp->HardNormalCheck)
-      if(CheckForFlip())  error = std::numeric_limits<ScalarType>::max();
+      if(CheckForFlip(vcg::math::ToRad(89.0))) 
+        error = std::numeric_limits<ScalarType>::max();
     
     // Restore old position of v0 and v1
     v[0]->P()=OldPos0;
@@ -582,10 +601,13 @@ public:
         if (vertexPairCache.count(vfi.V1()) > 0)
         {
           VertexType* vertex = vertexPairCache.at(vfi.V1());
-          float distance = Distance(vertex->P(), vfi.V1()->P());
-          if (distance < pp->CollapseThr)
+          if (!vertex->IsD())
           {
-            AddCollapseToHeap(h_ret, vertex, vfi.V1(), _pp);
+            float distance = Distance(vertex->P(), vfi.V1()->P());
+            if (distance < pp->CollapseThr)
+            {
+              AddCollapseToHeap(h_ret, vertex, vfi.V1(), _pp);
+            }
           }
         }
       }
@@ -596,10 +618,13 @@ public:
         if (vertexPairCache.count(vfi.V2()) > 0)
         {
           VertexType* vertex = vertexPairCache.at(vfi.V2());
-            float distance = Distance(vertex->P(), vfi.V2()->P());
-          if (distance < pp->CollapseThr)
+          if (!vertex->IsD())
           {
-            AddCollapseToHeap(h_ret, vertex, vfi.V2(), _pp);
+            float distance = Distance(vertex->P(), vfi.V2()->P());
+            if (distance < pp->CollapseThr)
+            {
+              AddCollapseToHeap(h_ret, vertex, vfi.V2(), _pp);
+            }
           }
         }
       }
@@ -610,6 +635,7 @@ public:
 
   static void InitQuadric(TriMeshType &m,BaseParameterClass *_pp)
   {
+    //std::unordered_map<VertexType*, int> vertexHit;
     QParameter *pp=(QParameter *)_pp;
     QH::Init();
     for(VertexIterator pv=m.vert.begin();pv!=m.vert.end();++pv)
@@ -631,8 +657,10 @@ public:
           
           // The basic < add face quadric to each vertex > loop
           for(int j=0;j<3;++j)
-            if( (*fi).V(j)->IsW() )
+            if ((*fi).V(j)->IsW())
+            {
               QH::Qd((*fi).V(j)) += q;
+            }
           
           for(int j=0;j<3;++j)
             if( (*fi).IsB(j) || pp->QualityQuadric )
@@ -647,8 +675,14 @@ public:
               borderPlane.SetOffset(borderPlane.Direction().dot((*fi).V(j)->cP()));
               bq.ByPlane(borderPlane);
               
-              if( (*fi).V (j)->IsW() )	QH::Qd((*fi).V (j)) += bq;
-              if( (*fi).V1(j)->IsW() )	QH::Qd((*fi).V1(j)) += bq;
+              if ((*fi).V(j)->IsW())
+              {
+                QH::Qd((*fi).V(j)) += bq;
+              }
+              if ((*fi).V1(j)->IsW())
+              {
+                QH::Qd((*fi).V1(j)) += bq;
+              }
             }
         }
     
