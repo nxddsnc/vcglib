@@ -215,12 +215,11 @@ public:
 		nPerformedOps =0;
 		while( !GoalReached() && !h.empty())
 			{
-        //if(h.size()> m.SimplexNumber()*HeapSimplexRatio ) 
-          //ClearHeap();
+        if(h.size()> m.SimplexNumber()*HeapSimplexRatio ) 
+          ClearHeap();
 				std::pop_heap(h.begin(),h.end());
         LocModType  *locMod   = h.back().locModPtr;
 				currMetric=h.back().pri;
-        printf("current Metric: %f\n", currMetric);
         h.pop_back();
         				
         if( locMod->IsUpToDate() )
@@ -230,7 +229,8 @@ public:
 					{
 						nPerformedOps++;
             locMod->Execute(m,this->pp);
-            locMod->UpdateHeap(h,this->pp, vertexPairCache);
+            //locMod->UpdateHeap(h,this->pp, vertexPairCache);
+            printf("current Metric: %f\n", currMetric);
 						}
 				}
 				delete locMod;
