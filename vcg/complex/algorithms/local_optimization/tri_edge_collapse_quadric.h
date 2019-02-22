@@ -303,8 +303,8 @@ public:
           }
           if (vi1 != vi2 && !(*vi1).IsD() && (*vi1).IsRW())
           {
-            float test = Distance((*vi1).P(), (*vi2).P());
-            if (test < pp->CollapseThr && test > 0.0001)
+            float distance = Distance((*vi1).P(), (*vi2).P());
+            if (distance < pp->CollapseThr)
             {
               h_ret.push_back(HeapElem(new MYTYPE(VertexPair(&*vi1, &*vi2), TriEdgeCollapse< TriMeshType, VertexPair, MYTYPE>::GlobalMark(), _pp)));
               if (vertexPairCache.count(&*vi1) == 0)
