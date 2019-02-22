@@ -29,11 +29,12 @@
 #include<vcg/complex/algorithms/local_optimization/tri_edge_collapse.h>
 #include<vcg/complex/algorithms/local_optimization.h>
 #include<vcg/complex/algorithms/stat.h>
-
-
+#include<vcg/space/index/octree.h>
+#include<vcg/space/index/grid_closest.h>
+#include <vcg/space/index/grid_static_ptr.h>
+#include<ctime>
 namespace vcg{
 namespace tri{
-
 
 /**
   This class describe Quadric based collapse operation.
@@ -132,6 +133,21 @@ public:
   
   CoordType optimalPos;  // Local storage of the once computed optimal position of the collapse.
   
+  struct VertPointDistanceFunctor
+  {
+      inline bool operator()(const VertexType &v, const CoordType &p, ScalarType &d, CoordType &q) const
+      {
+          ScalarType distance = Distance(p, v.P());
+          if (distance > d)
+              return false;
+
+          d = distance;
+          q = v.P();
+          return true;
+      }
+  };
+
+  class DummyObjectMarker {};
   // Pointer to the vector that store the Write flags. Used to preserve them if you ask to preserve for the boundaries.
   static std::vector<typename TriMeshType::VertexPointer>  & WV(){
     static std::vector<typename TriMeshType::VertexPointer> _WV; return _WV;
@@ -223,6 +239,7 @@ public:
   
   static void Init(TriMeshType &m, HeapType &h_ret, BaseParameterClass *_pp, std::unordered_map<VertexType*, std::vector<VertexType*>>& vertexPairCache)
   {
+      clock_t t5 = std::clock();
     QParameter *pp=(QParameter *)_pp;    
     pp->CosineThr=cos(pp->NormalThrRad);
     h_ret.clear();
@@ -253,9 +270,17 @@ public:
               if((*pf).V1(j)->IsW()) {(*pf).V1(j)->ClearW();WV().push_back((*pf).V1(j));}
             }
     }
-    
+    clock_t t6 = std::clock();
     InitQuadric(m,pp);
-    
+    clock_t t7 = std::clock();
+    if ((t6 - t5) / (float)CLOCKS_PER_SEC > 1.0)
+    {
+        printf("t6 - t5: %f\n", (t6 - t5) / (float)CLOCKS_PER_SEC > 1.0);
+    }
+    if ((t7 - t6) / (float)CLOCKS_PER_SEC > 1.0)
+    {
+        printf("t6 - t5: %f\n", (t7 - t6) / (float)CLOCKS_PER_SEC > 1.0);
+    }
     // Initialize the heap with all the possible collapses
     if(IsSymmetric(pp))
     { // if the collapse is symmetric (e.g. u->v == v->u)
@@ -282,44 +307,69 @@ public:
     }
     else
     { // if the collapse is A-symmetric (e.g. u->v != v->u)
+      VertPointDistanceFunctor distanceFunctor;
+
+      typedef vcg::GridStaticPtr<VertexType, VertexType::ScalarType> MeshGrid;
+      MeshGrid uniformGrid;
+      vcg::Octree< VertexType, ScalarType > octree;
+     
+      clock_t t1 = std::clock();
+      uniformGrid.Set(m.vert.begin(), m.vert.end());
+      //octree.Set(m.vert.begin(), m.vert.end());
+      clock_t t2 = std::clock();
+      if ((t2 - t1) / (float)CLOCKS_PER_SEC > 1.0)
+      {
+          printf("octree init: %f\n", (t2 - t1) / (float)CLOCKS_PER_SEC);
+      }
+      float totalTime = 0;
       for (auto vi1 = m.vert.begin(); vi1 != m.vert.end(); ++vi1)
       {
-        vcg::face::VFIterator<FaceType> x;
+        DummyObjectMarker objMarker;
+        std::vector<VertexType*> nearbyVertices;
+        std::vector<float> distances;
+        std::vector<Point3f> points;
 
-        for (auto vi2 = m.vert.begin(); vi2 != m.vert.end(); ++vi2)
+        clock_t t3 = std::clock();
+        vcg::tri::GetInSphereVertex(m, uniformGrid, vi1->P(), pp->CollapseThr, nearbyVertices, distances, points);
+        //octree.GetInSphere(distanceFunctor, objMarker, vi1->P(), pp->CollapseThr, nearbyVertices, distances, points);
+        clock_t t4 = std::clock();
+
+        totalTime += ((t4 - t3) / (float)CLOCKS_PER_SEC);
+        vcg::face::VFIterator<FaceType> x;
+        for (int i = 0; i < nearbyVertices.size(); ++i)
         {
           bool isEdge = false;
-          for (x.F() = (*vi1).VFp(), x.I() = (*vi1).VFi(); x.F() != 0; ++x)
+          for (x.F() = nearbyVertices[i]->VFp(), x.I() = nearbyVertices[i]->VFi(); x.F() != 0; ++x)
           {
-            if (&*vi2 == x.V1() || &*vi2 == x.V2())
-            {
-              isEdge = true;
-              break;
-            }
+             if (&*vi1 == x.V1() || &*vi1 == x.V2())
+             {
+               isEdge = true;
+               break;
+             }
           }
           if (isEdge)
           {
             continue;
           }
-          if (vi1 != vi2 && !(*vi1).IsD() && (*vi1).IsRW())
+          if (!(*vi1).IsD() && (*vi1).IsRW())
           {
-            float distance = Distance((*vi1).P(), (*vi2).P());
-            if (distance < pp->CollapseThr)
+            h_ret.push_back(HeapElem(new MYTYPE(VertexPair(&*vi1, nearbyVertices[i]), TriEdgeCollapse< TriMeshType, VertexPair, MYTYPE>::GlobalMark(), _pp)));
+            if (vertexPairCache.count(&*vi1) == 0)
             {
-              h_ret.push_back(HeapElem(new MYTYPE(VertexPair(&*vi1, &*vi2), TriEdgeCollapse< TriMeshType, VertexPair, MYTYPE>::GlobalMark(), _pp)));
-              if (vertexPairCache.count(&*vi1) == 0)
-              {
-								std::vector<VertexType*> vertices;
-								vertices.push_back(&*vi2);
-                vertexPairCache.insert(std::make_pair(&*vi1, vertices));
-              }
-							else
-							{
-								vertexPairCache.at(&*vi1).push_back(&*vi2);
-							}
+              std::vector<VertexType*> vertices;
+              vertices.push_back(nearbyVertices[i]);
+              vertexPairCache.insert(std::make_pair(&*vi1, vertices));
+            }
+            else
+            {
+              vertexPairCache.at(&*vi1).push_back(nearbyVertices[i]);
             }
           }
         }
+      }
+      if (totalTime > 1.0)
+      {
+          printf("totalTime: %f\n", totalTime);
       }
       for (auto vi = m.vert.begin(); vi != m.vert.end(); ++vi)
       {
@@ -338,6 +388,11 @@ public:
           }
         }
       }
+    }
+    clock_t t8 = std::clock();
+    if ((t8 - t7) / (float)CLOCKS_PER_SEC > 1.0)
+    {
+        printf("octree init: %f\n", (t8 - t7) / (float)CLOCKS_PER_SEC);
     }
   }
 //  static float HeapSimplexRatio(BaseParameterClass *_pp) {return IsSymmetric(_pp)?5.0f:9.0f;}
